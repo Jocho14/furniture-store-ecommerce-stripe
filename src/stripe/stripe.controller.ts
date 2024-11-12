@@ -40,7 +40,9 @@ export class StripeController {
 
   @Get('session-status')
   async getSessionStatus(@Query('session_id') sessionId: string) {
+    console.log('entered here');
     const session = await this.stripeService.getCheckoutSession(sessionId);
+    console.log(session);
     return {
       status: session.payment_status,
       customer_email: session.customer_email || '',

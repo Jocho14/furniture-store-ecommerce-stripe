@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { LineItemDto } from './DTO/lineItem.dto';
 import { createLineItems } from 'src/utils/stripe-utils';
 import Stripe from 'stripe';
+import { expand } from 'rxjs';
 
 @Injectable()
 export class StripeService {
@@ -23,12 +24,15 @@ export class StripeService {
       line_items: createLineItems(items),
       mode: 'payment',
       return_url: `${process.env.FRONTEND_URL}/return?session_id={CHECKOUT_SESSION_ID}`,
+      locale: 'en',
     });
 
     return session;
   }
 
   async getCheckoutSession(sessionId: string) {
-    return this.stripe.checkout.sessions.retrieve(sessionId);
+    return this.stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items'],
+    });
   }
 }
