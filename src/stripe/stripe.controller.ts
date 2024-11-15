@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Param } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { HttpService } from '@nestjs/axios';
 import { CartItemDto } from './DTO/cartItem.dto';
@@ -13,28 +13,9 @@ export class StripeController {
     private readonly httpService: HttpService,
   ) {}
 
-  @Post('create-checkout-session')
-  async createCheckoutSession(@Body() body: { cartItems: CartItemDto[] }) {
-    const { cartItems } = body;
-    const productPaymentDetails = await this.fetchProductDetails(
-      cartItems.map((item) => item.productId),
-    );
-
-    const lineItems = cartItems.map((cartItem) => {
-      const productDetail: ProductDetailDto = productPaymentDetails.find(
-        (productDetail) => productDetail.productId === cartItem.productId,
-      );
-
-      return new LineItemDto(
-        cartItem.quantity,
-        productDetail.productId,
-        productDetail.name,
-        productDetail.price,
-        productDetail.imageUrls,
-      );
-    });
-
-    const session = await this.stripeService.createCheckoutSession(lineItems);
+  @Post('create-checkout-session/:id')
+  async createCheckoutSession(@Param('id') id: number) {
+    const session = await this.stripeService.createCheckoutSession(id);
     return { clientSecret: session.client_secret };
   }
 
@@ -47,17 +28,5 @@ export class StripeController {
       status: session.payment_status,
       customer_email: session.customer_email || '',
     };
-  }
-
-  private async fetchProductDetails(productIds: number[]) {
-    const response = await lastValueFrom(
-      this.httpService.post(
-        `${process.env.BACKEND_URL}/products/payment-details`,
-        {
-          ids: productIds,
-        },
-      ),
-    );
-    return response.data;
   }
 }
