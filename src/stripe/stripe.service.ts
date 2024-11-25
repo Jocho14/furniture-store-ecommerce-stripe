@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LineItemDto } from './DTO/lineItem.dto';
 import { createLineItems } from 'src/utils/stripe-utils';
@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { lastValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ProductDetailDto } from './DTO/productDetail.dto';
+import { OrderStatusException } from './exceptions/orderStatusException';
 
 @Injectable()
 export class StripeService {
@@ -27,18 +28,15 @@ export class StripeService {
     const order = await this.getOrder(orderId);
 
     if (order.status !== 'pending') {
-      throw new Error('Order is either cancelled or completed');
+      throw new OrderStatusException();
     }
 
     const cartItems = await this.getCartItems(orderId);
-
-    console.log('cart items: ', cartItems);
 
     const productPaymentDetails = await this.fetchProductDetails(
       cartItems.map((item) => item.product_id),
     );
 
-    console.log('product payment details: ', productPaymentDetails);
     const customerEmail =
       order.guest_id !== null
         ? await this.getGuestEmail(orderId)
@@ -65,6 +63,9 @@ export class StripeService {
       mode: 'payment',
       return_url: `${process.env.FRONTEND_URL}/return?session_id={CHECKOUT_SESSION_ID}`,
       locale: 'en',
+      metadata: {
+        order_id: orderId.toString(),
+      },
     });
 
     return session;
@@ -85,7 +86,6 @@ export class StripeService {
         },
       ),
     );
-    console.log('fetched data: ', response.data);
     return response.data;
   }
 
@@ -93,7 +93,6 @@ export class StripeService {
     const response = await lastValueFrom(
       this.httpService.get(`${process.env.BACKEND_URL}/orders/${orderId}`),
     );
-    console.log(response.data);
     return response.data;
   }
 
@@ -122,5 +121,17 @@ export class StripeService {
       ),
     );
     return response.data;
+  }
+
+  async setSessionResult(session: any) {
+    if (session.payment_status === 'paid') {
+      const response = await lastValueFrom(
+        this.httpService.post(
+          `${process.env.BACKEND_URL}/orders/${session.metadata.order_id}/complete`,
+          {},
+        ),
+      );
+      return response.data;
+    }
   }
 }
