@@ -39,8 +39,10 @@ export class StripeService {
     );
 
     console.log('product payment details: ', productPaymentDetails);
-
-    const customerEmail = await this.getGuestEmail(orderId);
+    const customerEmail =
+      order.guest_id !== null
+        ? await this.getGuestEmail(orderId)
+        : await this.getClientEmail(orderId);
 
     const lineItems = cartItems.map((cartItem) => {
       const productDetail: ProductDetailDto = productPaymentDetails.find(
@@ -108,6 +110,15 @@ export class StripeService {
     const response = await lastValueFrom(
       this.httpService.get(
         `${process.env.BACKEND_URL}/orders/${orderId}/guest-email`,
+      ),
+    );
+    return response.data;
+  }
+
+  async getClientEmail(orderId: number) {
+    const response = await lastValueFrom(
+      this.httpService.get(
+        `${process.env.BACKEND_URL}/orders/${orderId}/client-email`,
       ),
     );
     return response.data;
